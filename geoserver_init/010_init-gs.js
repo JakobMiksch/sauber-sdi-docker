@@ -11,12 +11,9 @@ import fs from 'fs';
 
 const verbose = process.env.GSINIT_VERBOSE;
 
-// const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
-const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://localhost:8080/geoserver/rest/';
-const newGeoserverUser =  process.env.GSINIT_USER;
-// const newGeoserverUser = dockerSecret.read('geoserver_user') || process.env.GSINIT_USER;
-const newGeoserverPw = process.env.GSINIT_PW;
-// const newGeoserverPw = dockerSecret.read('geoserver_password')  || process.env.GSINIT_PW;
+const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
+const newGeoserverUser = dockerSecret.read('geoserver_user');
+const newGeoserverPw = dockerSecret.read('geoserver_password');
 
 const workspacesList = process.env.GSINIT_WS || 'station_data,image_mosaics';
 const stationWorkspace = process.env.GSINIT_STATION_WS || 'station_data';
@@ -25,8 +22,7 @@ const pgHost = process.env.GSINIT_PG_HOST || 'db';
 const pgPort = process.env.GSINIT_PG_PORT || '5432';
 const pgUser = process.env.GSINIT_PG_USER || 'app';
 const proxyBaseUrl = process.env.GSINIT_PROXY_BASE_URL;
-// const pgPassword = dockerSecret.read('app_password') || process.env.GSINIT_PG_PW;
-const pgPassword = process.env.GSINIT_PG_PW;
+const pgPassword = dockerSecret.read('app_password') || process.env.GSINIT_PG_PW;
 const pgSchema = process.env.GSINIT_PG_SCHEMA || 'station_data';
 const pgDb = process.env.GSINIT_PG_DB || 'sauber_data';
 const nameSpaceBaseUrl = process.env.GSINIT_NAMESPACE_BASE_URL || 'https://www.meggsimum.de/namespace/';
