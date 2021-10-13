@@ -12,22 +12,21 @@ import {exec} from 'child_process';
 
 const verbose = process.env.GSPUB_VERBOSE;
 
-// const postgRestUrl = process.env.GSPUB_PG_REST_URL || 'http://postgrest:3000';
-// const postgRestUser = process.env.GSPUB_PG_REST_USER;
-// const postgRestPw = dockerSecret.read('postgrest_password') || process.env.GSPUB_PG_REST_PW;
+const postgRestUrl = process.env.GSPUB_PG_REST_URL || 'http://postgrest:3000';
+const postgRestUser = process.env.GSPUB_PG_REST_USER;
+const postgRestPw = dockerSecret.read('postgrest_password') || process.env.GSPUB_PG_REST_PW;
 
-// verboseLogging('PostgREST URL: ', postgRestUrl);
-// verboseLogging('PostgREST User:', postgRestUser);
-// verboseLogging('PostgREST PW:  ', postgRestPw);
+verboseLogging('PostgREST URL: ', postgRestUrl);
+verboseLogging('PostgREST User:', postgRestUser);
+verboseLogging('PostgREST PW:  ', postgRestPw);
 
-// const rasterMetaTable = process.env.GSPUB_RASTER_META_TBL || 'raster_metadata';
+const rasterMetaTable = process.env.GSPUB_RASTER_META_TBL || 'raster_metadata';
 
-// const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
-const geoserverUrl = 'http://localhost:8080/geoserver/rest/';
+const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
 const geoserverUser = process.env.GSPUB_GS_REST_USER;
 const geoserverPw = process.env.GSPUB_GS_REST_PW;
 
-// const pgPassword = dockerSecret.read('sauber_manager_password') || process.env.GSPUB_PG_PW;
+const pgPassword = dockerSecret.read('sauber_manager_password') || process.env.GSPUB_PG_PW;
 
 verboseLogging('GeoServer REST URL: ', geoserverUrl);
 verboseLogging('GeoServer REST User:', geoserverUser);
@@ -42,44 +41,38 @@ verboseLogging('GeoServer REST PW:  ', geoserverPw);
 async function publishRasters() {
   framedBigLogging('Start process publishing SAUBER rasters to GeoServer...');
 
-  // // Query all unpublished rasters from DB
-  // const unpublishedRasters = await getUnpublishedRasters();
+  // Query all unpublished rasters from DB
+  const unpublishedRasters = await getUnpublishedRasters();
 
-  // // exit if raster metadata could not be loaded
-  // if (!unpublishedRasters || Array.isArray(unpublishedRasters) && unpublishedRasters.length === 0) {
-  //   framedMediumLogging('Could not get raster metadata - ABORT!');
-  //   process.exit(1);
-  // }
+  // exit if raster metadata could not be loaded
+  if (!unpublishedRasters || Array.isArray(unpublishedRasters) && unpublishedRasters.length === 0) {
+    framedMediumLogging('Could not get raster metadata - ABORT!');
+    process.exit(1);
+  }
 
-  // framedMediumLogging('Create CoverageStores if not existing');
+  framedMediumLogging('Create CoverageStores if not existing');
 
-  // // check if given CoverageStores exists and create them if not
-  // await asyncForEach(unpublishedRasters, checkIfCoverageStoresExist);
+  // check if given CoverageStores exists and create them if not
+  await asyncForEach(unpublishedRasters, checkIfCoverageStoresExist);
 
   framedMediumLogging('Create time-enabled WMS layers if not existing');
 
-  // MOCK
-  const unpublishedRasters = [{
-    workspace: 'image_mosaics',
-    coverage_store: 'jm_store_pm10_asfd'
-  }];
-
   await asyncForEach(unpublishedRasters, createRasterTimeLayers);
 
-  // framedMediumLogging('Publish rasters');
+  framedMediumLogging('Publish rasters');
 
-  // await asyncForEach(unpublishedRasters, async (rasterMetaInf) => {
-  //   verboseLogging('Publish raster', rasterMetaInf.image_path);
+  await asyncForEach(unpublishedRasters, async (rasterMetaInf) => {
+    verboseLogging('Publish raster', rasterMetaInf.image_path);
 
-  //   await addRasterToGeoServer(rasterMetaInf).then(async (success) => {
-  //     if (success) {
-  //       await markRastersPublished(rasterMetaInf);
-  //     } else {
-  //       console.warn('Could not add raster/granule "', rasterMetaInf.image_path ,'" to store', rasterMetaInf.coverage_store);
-  //     }
-  //     verboseLogging('-----------------------------------------------------\n');
-  //   });
-  // });
+    await addRasterToGeoServer(rasterMetaInf).then(async (success) => {
+      if (success) {
+        await markRastersPublished(rasterMetaInf);
+      } else {
+        console.warn('Could not add raster/granule "', rasterMetaInf.image_path ,'" to store', rasterMetaInf.coverage_store);
+      }
+      verboseLogging('-----------------------------------------------------\n');
+    });
+  });
 }
 
 /**
@@ -189,22 +182,22 @@ async function createRasterTimeLayers (rasterMetaInf) {
   await assignStyleIfNecessary(layer, ws, layerName);
 
   // check if layer has time dimension enabled
-  // let hasTime = false;
-  // const coverage = await grc.layers.getCoverage(ws, covStore, layerName);
-  // if (coverage && coverage.coverage.metadata && coverage.coverage.metadata.entry &&
-  //   coverage.coverage.metadata.entry['@key'] === 'time' && (typeof coverage.coverage.metadata.entry.dimensionInfo === 'object')) {
-  //     const dimInfo = coverage.coverage.metadata.entry.dimensionInfo;
-  //     if (dimInfo.enabled === true && dimInfo.nearestMatchEnabled === true &&
-  //         dimInfo.acceptableInterval) {
-  //         hasTime = true;
-  //     }
-  // }
+  let hasTime = false;
+  const coverage = await grc.layers.getCoverage(ws, covStore, layerName);
+  if (coverage && coverage.coverage.metadata && coverage.coverage.metadata.entry &&
+    coverage.coverage.metadata.entry['@key'] === 'time' && (typeof coverage.coverage.metadata.entry.dimensionInfo === 'object')) {
+      const dimInfo = coverage.coverage.metadata.entry.dimensionInfo;
+      if (dimInfo.enabled === true && dimInfo.nearestMatchEnabled === true &&
+          dimInfo.acceptableInterval) {
+          hasTime = true;
+      }
+  }
 
-  // if (!hasTime) {
-  //   console.info(`Enabling time for layer "${qualifiedLayerName}"`);
-  //   const timeEnabled = await grc.layers.enableTimeCoverage(ws, covStore, layerName, 'DISCRETE_INTERVAL', 3600000, 'MAXIMUM', true, false, 'PT30M');
-  //   verboseLogging(`Time dimension  for layer "${qualifiedLayerName}" successfully enabled?`, timeEnabled);
-  // }
+  if (!hasTime) {
+    console.info(`Enabling time for layer "${qualifiedLayerName}"`);
+    const timeEnabled = await grc.layers.enableTimeCoverage(ws, covStore, layerName, 'DISCRETE_INTERVAL', 3600000, 'MAXIMUM', true, false, 'PT30M');
+    verboseLogging(`Time dimension  for layer "${qualifiedLayerName}" successfully enabled?`, timeEnabled);
+  }
 }
 
 /**
