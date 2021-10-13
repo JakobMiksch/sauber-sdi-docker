@@ -162,18 +162,51 @@ async function createRasterTimeLayers (rasterMetaInf) {
   const nativeName = covStore;
   const layerTitle = covStore;
 
-  verboseLogging(`Checking existence for layer ${ws}:${layerName} in coverage store ${covStore} (native name: ${nativeName})`);
+  const qualifiedLayerName = `${ws}:${layerName}`;
+
+  verboseLogging(`Checking existence for layer ${qualifiedLayerName} in coverage store ${covStore} (native name: ${nativeName})`);
 
   const layer = await grc.layers.get(covStore);
 
   if (!layer) {
-    console.info(`Creating layer "${ws}:${layerName}" in store "${covStore}"`);
+    console.info(`Creating layer "${qualifiedLayerName}" in store "${covStore}"`);
     // called like this: publishDbRaster (workspace, coverageStore, nativeName, name, title, srs, enabled)
     const layerCreated = await grc.layers.publishDbRaster(ws, covStore, nativeName, layerName, layerTitle, srs, true);
-    verboseLogging(`Layer "${ws}:${layerName}" created successfully?`, layerCreated);
+    verboseLogging(`Layer "${qualifiedLayerName}" created successfully?`, layerCreated);
 
   } else {
-    verboseLogging(`Layer "${ws}:${layerName}" already existing.`);
+    verboseLogging(`Layer "${qualifiedLayerName}" already existing.`);
+  }
+
+  // add style to layer if layer does not have one yet
+  let layerHasStyle = layer && !!layer.defaultStyle;
+  if (!layerHasStyle) {
+    console.log(`Layer "${qualifiedLayerName}" has a style.`);
+  }
+  else {
+    console.log(`Layer "${qualifiedLayerName}" does not have a style. Adding a new one ...`);
+
+    const workspaceStyle = 'image_mosaics';
+
+    let styleName = '';
+    if (layerName.contains('_no_')) {
+      styleName = 'no_raster';
+    } else if (layerName.contains('_no2_')) {
+      styleName = 'no2_raster';
+    } else if (layerName.contains('_pm10_')) {
+      styleName = 'pm10_raster';
+    } else {
+      console.log(`Could not guess the respective style for layer: "${qualifiedLayerName}"`);
+    }
+
+    if (styleName) {
+          const styleAssigend = await grc.styles.assignStyleToLayer(
+            qualifiedLayerName,
+            styleName,
+            workspaceStyle
+          );
+          console.log(`Style "${styleName}" assigned to layer "${qualifiedLayerName}": ${styleAssigend}`);
+    }
   }
 
   // check if layer has time dimension enabled
@@ -189,9 +222,9 @@ async function createRasterTimeLayers (rasterMetaInf) {
   }
 
   if (!hasTime) {
-    console.info(`Enabling time for layer "${ws}:${layerName}"`);
+    console.info(`Enabling time for layer "${qualifiedLayerName}"`);
     const timeEnabled = await grc.layers.enableTimeCoverage(ws, covStore, layerName, 'DISCRETE_INTERVAL', 3600000, 'MAXIMUM', true, false, 'PT30M');
-    verboseLogging(`Time dimension  for layer "${ws}:${layerName}" successfully enabled?`, timeEnabled);
+    verboseLogging(`Time dimension  for layer "${qualifiedLayerName}" successfully enabled?`, timeEnabled);
   }
 }
 
