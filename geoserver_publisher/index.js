@@ -23,8 +23,8 @@ verboseLogging('PostgREST PW:  ', postgRestPw);
 const rasterMetaTable = process.env.GSPUB_RASTER_META_TBL || 'raster_metadata';
 
 const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
-const geoserverUser = process.env.GSPUB_GS_REST_USER;
-const geoserverPw = process.env.GSPUB_GS_REST_PW;
+const geoserverUser = dockerSecret.read('geoserver_user') || process.env.GSPUB_GS_REST_USER;
+const geoserverPw = dockerSecret.read('geoserver_password') || process.env.GSPUB_GS_REST_PW;
 
 const pgPassword = dockerSecret.read('sauber_manager_password') || process.env.GSPUB_PG_PW;
 
@@ -162,20 +162,18 @@ async function createRasterTimeLayers (rasterMetaInf) {
   const nativeName = covStore;
   const layerTitle = covStore;
 
-  const qualifiedLayerName = `${ws}:${layerName}`;
-
-  verboseLogging(`Checking existence for layer ${qualifiedLayerName} in coverage store ${covStore} (native name: ${nativeName})`);
+  verboseLogging(`Checking existence for layer ${ws}:${layerName} in coverage store ${covStore} (native name: ${nativeName})`);
 
   const layer = await grc.layers.get(covStore);
 
   if (!layer) {
-    console.info(`Creating layer "${qualifiedLayerName}" in store "${covStore}"`);
+    console.info(`Creating layer "${ws}:${layerName}" in store "${covStore}"`);
     // called like this: publishDbRaster (workspace, coverageStore, nativeName, name, title, srs, enabled)
     const layerCreated = await grc.layers.publishDbRaster(ws, covStore, nativeName, layerName, layerTitle, srs, true);
-    verboseLogging(`Layer "${qualifiedLayerName}" created successfully?`, layerCreated);
+    verboseLogging(`Layer "${ws}:${layerName}" created successfully?`, layerCreated);
 
   } else {
-    verboseLogging(`Layer "${qualifiedLayerName}" already existing.`);
+    verboseLogging(`Layer "${ws}:${layerName}" already existing.`);
   }
 
   // assign style if necessary
@@ -194,9 +192,9 @@ async function createRasterTimeLayers (rasterMetaInf) {
   }
 
   if (!hasTime) {
-    console.info(`Enabling time for layer "${qualifiedLayerName}"`);
+    console.info(`Enabling time for layer "${ws}:${layerName}"`);
     const timeEnabled = await grc.layers.enableTimeCoverage(ws, covStore, layerName, 'DISCRETE_INTERVAL', 3600000, 'MAXIMUM', true, false, 'PT30M');
-    verboseLogging(`Time dimension  for layer "${qualifiedLayerName}" successfully enabled?`, timeEnabled);
+    verboseLogging(`Time dimension  for layer "${ws}:${layerName}" successfully enabled?`, timeEnabled);
   }
 }
 
@@ -217,8 +215,6 @@ async function assignStyleIfNecessary(layer, workspace, layerName) {
     no2: 'raster_no2'
   };
 
-  console.log('...');
-
   // check if layer has correct style
   let layerHasCorrectStyle = false;
   if (layer && layer.layer && layer.layer.defaultStyle && layer.layer.defaultStyle.name) {
@@ -230,17 +226,14 @@ async function assignStyleIfNecessary(layer, workspace, layerName) {
     if (split.length === 2) {
       // get the actual style name without workspace
       let currentStyle = split[1];
-      console.log(`styleName: ${currentStyle}`);
       // check if the style name is among the allowed styles
       const result = Object.values(allowedStyles).find(allowedStyle => {
         return allowedStyle === currentStyle;
       });
-      console.log(`result: ${result}`);
       // becomes true if style is allowed
       layerHasCorrectStyle = !!result;
     }
   }
-  console.log(`layerHasCorrectStyle: ${layerHasCorrectStyle}`);
 
   if (layerHasCorrectStyle) {
     console.log(`Layer "${qualifiedLayerName}" already has the correct style.`);
@@ -263,9 +256,6 @@ async function assignStyleIfNecessary(layer, workspace, layerName) {
   }
 
   if (styleName) {
-    console.log(qualifiedLayerName);
-    console.log(styleName);
-    console.log(workspaceStyle);
     const isDefaultStyle = true;
     const styleAssigend = await grc.styles.assignStyleToLayer(
       qualifiedLayerName,
