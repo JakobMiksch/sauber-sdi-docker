@@ -12,21 +12,22 @@ import {exec} from 'child_process';
 
 const verbose = process.env.GSPUB_VERBOSE;
 
-const postgRestUrl = process.env.GSPUB_PG_REST_URL || 'http://postgrest:3000';
-const postgRestUser = process.env.GSPUB_PG_REST_USER;
-const postgRestPw = dockerSecret.read('postgrest_password') || process.env.GSPUB_PG_REST_PW;
+// const postgRestUrl = process.env.GSPUB_PG_REST_URL || 'http://postgrest:3000';
+// const postgRestUser = process.env.GSPUB_PG_REST_USER;
+// const postgRestPw = dockerSecret.read('postgrest_password') || process.env.GSPUB_PG_REST_PW;
 
-verboseLogging('PostgREST URL: ', postgRestUrl);
-verboseLogging('PostgREST User:', postgRestUser);
-verboseLogging('PostgREST PW:  ', postgRestPw);
+// verboseLogging('PostgREST URL: ', postgRestUrl);
+// verboseLogging('PostgREST User:', postgRestUser);
+// verboseLogging('PostgREST PW:  ', postgRestPw);
 
-const rasterMetaTable = process.env.GSPUB_RASTER_META_TBL || 'raster_metadata';
+// const rasterMetaTable = process.env.GSPUB_RASTER_META_TBL || 'raster_metadata';
 
-const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
-const geoserverUser = dockerSecret.read('geoserver_user') || process.env.GSPUB_GS_REST_USER;
-const geoserverPw = dockerSecret.read('geoserver_password') || process.env.GSPUB_GS_REST_PW;
+// const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
+const geoserverUrl = 'http://localhost:8080/geoserver/rest/';
+const geoserverUser = process.env.GSPUB_GS_REST_USER;
+const geoserverPw = process.env.GSPUB_GS_REST_PW;
 
-const pgPassword = dockerSecret.read('sauber_manager_password') || process.env.GSPUB_PG_PW;
+// const pgPassword = dockerSecret.read('sauber_manager_password') || process.env.GSPUB_PG_PW;
 
 verboseLogging('GeoServer REST URL: ', geoserverUrl);
 verboseLogging('GeoServer REST User:', geoserverUser);
@@ -41,38 +42,44 @@ verboseLogging('GeoServer REST PW:  ', geoserverPw);
 async function publishRasters() {
   framedBigLogging('Start process publishing SAUBER rasters to GeoServer...');
 
-  // Query all unpublished rasters from DB
-  const unpublishedRasters = await getUnpublishedRasters();
+  // // Query all unpublished rasters from DB
+  // const unpublishedRasters = await getUnpublishedRasters();
 
-  // exit if raster metadata could not be loaded
-  if (!unpublishedRasters || Array.isArray(unpublishedRasters) && unpublishedRasters.length === 0) {
-    framedMediumLogging('Could not get raster metadata - ABORT!');
-    process.exit(1);
-  }
+  // // exit if raster metadata could not be loaded
+  // if (!unpublishedRasters || Array.isArray(unpublishedRasters) && unpublishedRasters.length === 0) {
+  //   framedMediumLogging('Could not get raster metadata - ABORT!');
+  //   process.exit(1);
+  // }
 
-  framedMediumLogging('Create CoverageStores if not existing');
+  // framedMediumLogging('Create CoverageStores if not existing');
 
-  // check if given CoverageStores exists and create them if not
-  await asyncForEach(unpublishedRasters, checkIfCoverageStoresExist);
+  // // check if given CoverageStores exists and create them if not
+  // await asyncForEach(unpublishedRasters, checkIfCoverageStoresExist);
 
   framedMediumLogging('Create time-enabled WMS layers if not existing');
 
+  // MOCK
+  const unpublishedRasters = [{
+    workspace: 'image_mosaics',
+    coverage_store: 'jm_store_pm10_asfd'
+  }];
+
   await asyncForEach(unpublishedRasters, createRasterTimeLayers);
 
-  framedMediumLogging('Publish rasters');
+  // framedMediumLogging('Publish rasters');
 
-  await asyncForEach(unpublishedRasters, async (rasterMetaInf) => {
-    verboseLogging('Publish raster', rasterMetaInf.image_path);
+  // await asyncForEach(unpublishedRasters, async (rasterMetaInf) => {
+  //   verboseLogging('Publish raster', rasterMetaInf.image_path);
 
-    await addRasterToGeoServer(rasterMetaInf).then(async (success) => {
-      if (success) {
-        await markRastersPublished(rasterMetaInf);
-      } else {
-        console.warn('Could not add raster/granule "', rasterMetaInf.image_path ,'" to store', rasterMetaInf.coverage_store);
-      }
-      verboseLogging('-----------------------------------------------------\n');
-    });
-  });
+  //   await addRasterToGeoServer(rasterMetaInf).then(async (success) => {
+  //     if (success) {
+  //       await markRastersPublished(rasterMetaInf);
+  //     } else {
+  //       console.warn('Could not add raster/granule "', rasterMetaInf.image_path ,'" to store', rasterMetaInf.coverage_store);
+  //     }
+  //     verboseLogging('-----------------------------------------------------\n');
+  //   });
+  // });
 }
 
 /**
@@ -178,53 +185,102 @@ async function createRasterTimeLayers (rasterMetaInf) {
     verboseLogging(`Layer "${qualifiedLayerName}" already existing.`);
   }
 
-  // add style to layer if layer does not have one yet
-  let layerHasStyle = layer && !!layer.defaultStyle;
-  if (!layerHasStyle) {
-    console.log(`Layer "${qualifiedLayerName}" has a style.`);
-  }
-  else {
-    console.log(`Layer "${qualifiedLayerName}" does not have a style. Adding a new one ...`);
-
-    const workspaceStyle = 'image_mosaics';
-
-    let styleName = '';
-    if (layerName.contains('_no_')) {
-      styleName = 'no_raster';
-    } else if (layerName.contains('_no2_')) {
-      styleName = 'no2_raster';
-    } else if (layerName.contains('_pm10_')) {
-      styleName = 'pm10_raster';
-    } else {
-      console.log(`Could not guess the respective style for layer: "${qualifiedLayerName}"`);
-    }
-
-    if (styleName) {
-          const styleAssigend = await grc.styles.assignStyleToLayer(
-            qualifiedLayerName,
-            styleName,
-            workspaceStyle
-          );
-          console.log(`Style "${styleName}" assigned to layer "${qualifiedLayerName}": ${styleAssigend}`);
-    }
-  }
+  // assign style if necessary
+  await assignStyleIfNecessary(layer, ws, layerName);
 
   // check if layer has time dimension enabled
-  let hasTime = false;
-  const coverage = await grc.layers.getCoverage(ws, covStore, layerName);
-  if (coverage && coverage.coverage.metadata && coverage.coverage.metadata.entry &&
-    coverage.coverage.metadata.entry['@key'] === 'time' && (typeof coverage.coverage.metadata.entry.dimensionInfo === 'object')) {
-      const dimInfo = coverage.coverage.metadata.entry.dimensionInfo;
-      if (dimInfo.enabled === true && dimInfo.nearestMatchEnabled === true &&
-          dimInfo.acceptableInterval) {
-          hasTime = true;
-      }
+  // let hasTime = false;
+  // const coverage = await grc.layers.getCoverage(ws, covStore, layerName);
+  // if (coverage && coverage.coverage.metadata && coverage.coverage.metadata.entry &&
+  //   coverage.coverage.metadata.entry['@key'] === 'time' && (typeof coverage.coverage.metadata.entry.dimensionInfo === 'object')) {
+  //     const dimInfo = coverage.coverage.metadata.entry.dimensionInfo;
+  //     if (dimInfo.enabled === true && dimInfo.nearestMatchEnabled === true &&
+  //         dimInfo.acceptableInterval) {
+  //         hasTime = true;
+  //     }
+  // }
+
+  // if (!hasTime) {
+  //   console.info(`Enabling time for layer "${qualifiedLayerName}"`);
+  //   const timeEnabled = await grc.layers.enableTimeCoverage(ws, covStore, layerName, 'DISCRETE_INTERVAL', 3600000, 'MAXIMUM', true, false, 'PT30M');
+  //   verboseLogging(`Time dimension  for layer "${qualifiedLayerName}" successfully enabled?`, timeEnabled);
+  // }
+}
+
+/**
+ * Checks if the layer already has the correct style. If not, the correct style will be assigned.
+ *
+ * @param {Object} layer A layer represenation from the GeoServer REST API
+ * @param {String} workspace The workspace
+ * @param {String} layerName The layer name
+ */
+async function assignStyleIfNecessary(layer, workspace, layerName) {
+  const qualifiedLayerName = `${workspace}:${layerName}`;
+
+  // the styles must be the same as in 'geoserver_init'
+  const allowedStyles = {
+    pm10: 'raster_pm10',
+    no: 'raster_no',
+    no2: 'raster_no2'
+  };
+
+  console.log('...');
+
+  // check if layer has correct style
+  let layerHasCorrectStyle = false;
+  if (layer && layer.layer && layer.layer.defaultStyle && layer.layer.defaultStyle.name) {
+    // get style name from REST response
+    let responseStyleName = layer.layer.defaultStyle.name;
+    // check if style is inside a workspace like this "my-workpace:my-style"
+    // we require this pattern for our styles
+    const split = responseStyleName.split(':');
+    if (split.length === 2) {
+      // get the actual style name without workspace
+      let currentStyle = split[1];
+      console.log(`styleName: ${currentStyle}`);
+      // check if the style name is among the allowed styles
+      const result = Object.values(allowedStyles).find(allowedStyle => {
+        return allowedStyle === currentStyle;
+      });
+      console.log(`result: ${result}`);
+      // becomes true if style is allowed
+      layerHasCorrectStyle = !!result;
+    }
+  }
+  console.log(`layerHasCorrectStyle: ${layerHasCorrectStyle}`);
+
+  if (layerHasCorrectStyle) {
+    console.log(`Layer "${qualifiedLayerName}" already has the correct style.`);
+    return;
   }
 
-  if (!hasTime) {
-    console.info(`Enabling time for layer "${qualifiedLayerName}"`);
-    const timeEnabled = await grc.layers.enableTimeCoverage(ws, covStore, layerName, 'DISCRETE_INTERVAL', 3600000, 'MAXIMUM', true, false, 'PT30M');
-    verboseLogging(`Time dimension  for layer "${qualifiedLayerName}" successfully enabled?`, timeEnabled);
+  console.log(`Layer "${qualifiedLayerName}" does not have the correct style. Adding a new one ...`);
+
+  const workspaceStyle = 'image_mosaics';
+
+  let styleName = '';
+  if (layerName.includes('_no_')) {
+    styleName = allowedStyles.no;
+  } else if (layerName.includes('_no2_')) {
+    styleName = allowedStyles.no2;
+  } else if (layerName.includes ('_pm10_')) {
+    styleName = allowedStyles.pm10;
+  } else {
+    console.log(`Could not guess the respective style for layer "${qualifiedLayerName}". ABORT`);
+  }
+
+  if (styleName) {
+    console.log(qualifiedLayerName);
+    console.log(styleName);
+    console.log(workspaceStyle);
+    const isDefaultStyle = true;
+    const styleAssigend = await grc.styles.assignStyleToLayer(
+      qualifiedLayerName,
+      styleName,
+      workspaceStyle,
+      isDefaultStyle
+    );
+    console.log(`Style "${styleName}" assigned to layer "${qualifiedLayerName}": ${styleAssigend}`);
   }
 }
 
