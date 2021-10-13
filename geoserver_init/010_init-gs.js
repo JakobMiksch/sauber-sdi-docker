@@ -6,12 +6,17 @@
 import GeoServerRestClient from 'geoserver-node-client';
 import {framedBigLogging, framedMediumLogging} from './js-utils/logging.js';
 import dockerSecret from './js-utils/docker-secrets.js';
+import path from 'path';
+import fs from 'fs';
 
 const verbose = process.env.GSINIT_VERBOSE;
 
-const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
-const newGeoserverUser = dockerSecret.read('geoserver_user');
-const newGeoserverPw = dockerSecret.read('geoserver_password');
+// const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://geoserver:8080/geoserver/rest/';
+const geoserverUrl = process.env.GSPUB_GS_REST_URL || 'http://localhost:8080/geoserver/rest/';
+const newGeoserverUser =  process.env.GSINIT_USER;
+// const newGeoserverUser = dockerSecret.read('geoserver_user') || process.env.GSINIT_USER;
+const newGeoserverPw = process.env.GSINIT_PW;
+// const newGeoserverPw = dockerSecret.read('geoserver_password')  || process.env.GSINIT_PW;
 
 const workspacesList = process.env.GSINIT_WS || 'station_data,image_mosaics';
 const stationWorkspace = process.env.GSINIT_STATION_WS || 'station_data';
@@ -20,10 +25,15 @@ const pgHost = process.env.GSINIT_PG_HOST || 'db';
 const pgPort = process.env.GSINIT_PG_PORT || '5432';
 const pgUser = process.env.GSINIT_PG_USER || 'app';
 const proxyBaseUrl = process.env.GSINIT_PROXY_BASE_URL;
-const pgPassword = dockerSecret.read('app_password') || process.env.GSINIT_PG_PW;
+// const pgPassword = dockerSecret.read('app_password') || process.env.GSINIT_PG_PW;
+const pgPassword = process.env.GSINIT_PG_PW;
 const pgSchema = process.env.GSINIT_PG_SCHEMA || 'station_data';
 const pgDb = process.env.GSINIT_PG_DB || 'sauber_data';
 const nameSpaceBaseUrl = process.env.GSINIT_NAMESPACE_BASE_URL || 'https://www.meggsimum.de/namespace/';
+
+// constants
+const SLD_SUFFIX = '.sld';
+const SLD_DIRECTORY = 'sld';
 
 verboseLogging('-----------------------------------------------');
 
@@ -57,8 +67,66 @@ async function initGeoserver() {
 
   await createStationsLayer();
 
+  await createStyles();
+
   framedBigLogging('... DONE initalizing SAUBER GeoServer');
 }
+
+  /**
+   * Loops over all files of the SLD directory and publishes them to GeoServer.
+   */
+  async function createStyles () {
+    framedMediumLogging('Creating styles...');
+
+    const workspace = 'image_mosaics';
+
+    const sldFiles = await fs.readdirSync(SLD_DIRECTORY);
+
+    // loop over SLD files
+    await asyncForEach(sldFiles, async file => {
+      const styleName = path.parse(file).name;
+      const extension = path.parse(file).ext;
+
+      if (extension !== SLD_SUFFIX) {
+        // skip files that are not SLD
+        return;
+      }
+      await createSingleStyle(SLD_DIRECTORY, styleName, workspace);
+    });
+  }
+
+  /**
+   * Reads a SLD file and publishes it to GeoServer.
+   *
+   * We assume the name of the file without extension is the name of the style.
+   *
+   * @param {String} directory The directory where the SLD files are located
+   * @param {String} styleName The name of the style and the file
+   * @param {String} workspace The workspace to publish the style to
+   */
+  async function createSingleStyle(directory, styleName, workspace) {
+
+    console.log(`Creating style '${styleName}' ... `);
+    const styleFile = styleName + SLD_SUFFIX;
+
+    const styleExists = await grc.styles.getStyleInformation(styleName, workspace);
+
+    if (styleExists) {
+      console.log(`Style already exists. SKIP`);
+    }
+    else {
+      const sldFilePath = path.join(directory, styleFile);
+      const sldBody = fs.readFileSync(sldFilePath, 'utf8');
+
+      // publish style
+      const stylePublished = await grc.styles.publish(workspace, styleName, sldBody);
+      if (stylePublished) {
+        console.log(`Successfully created style '${styleName}'`);
+      } else {
+        console.log(`Creation of style '${styleName}' failed`);
+      }
+    }
+  }
 
 /**
  * Sets the proxy base url if it is provided
