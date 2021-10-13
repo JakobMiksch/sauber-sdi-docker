@@ -201,14 +201,15 @@ async function createRasterTimeLayers (rasterMetaInf) {
 /**
  * Checks if the layer already has the correct style. If not, the correct style will be assigned.
  *
- * @param {Object} layer A layer represenation from the GeoServer REST API
+ * @param {Object} layer The layer represenation from the GeoServer REST API
  * @param {String} workspace The workspace
  * @param {String} layerName The layer name
  */
 async function assignStyleIfNecessary(layer, workspace, layerName) {
   const qualifiedLayerName = `${workspace}:${layerName}`;
 
-  // the styles must be the same as in 'geoserver_init'
+  // the styles and their workspace must be the same as in the service 'geoserver_init'
+  const workspaceStyle = 'image_mosaics';
   const allowedStyles = {
     pm10: 'raster_pm10',
     no: 'raster_no',
@@ -241,8 +242,6 @@ async function assignStyleIfNecessary(layer, workspace, layerName) {
   }
 
   console.log(`Layer "${qualifiedLayerName}" does not have the correct style. Adding a new one ...`);
-
-  const workspaceStyle = 'image_mosaics';
 
   let styleName = '';
   if (layerName.includes('_no_')) {
