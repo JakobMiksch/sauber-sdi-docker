@@ -68,61 +68,60 @@ async function initGeoserver() {
   framedBigLogging('... DONE initalizing SAUBER GeoServer');
 }
 
-  /**
-   * Loops over all files of the SLD directory and publishes them to GeoServer.
-   */
-  async function createStyles () {
-    framedMediumLogging('Creating styles...');
+/**
+ * Loops over all files of the SLD directory and publishes them to GeoServer.
+ */
+async function createStyles() {
+  framedMediumLogging('Creating styles...');
 
-    const workspace = 'image_mosaics';
+  const workspace = 'image_mosaics';
 
-    const sldFiles = await fs.readdirSync(SLD_DIRECTORY);
+  const sldFiles = await fs.readdirSync(SLD_DIRECTORY);
 
-    // loop over SLD files
-    await asyncForEach(sldFiles, async file => {
-      const styleName = path.parse(file).name;
-      const extension = path.parse(file).ext;
+  // loop over SLD files
+  await asyncForEach(sldFiles, async file => {
+    const styleName = path.parse(file).name;
+    const extension = path.parse(file).ext;
 
-      if (extension !== SLD_SUFFIX) {
-        // skip files that are not SLD
-        return;
-      }
-      await createSingleStyle(SLD_DIRECTORY, styleName, workspace);
-    });
-  }
-
-  /**
-   * Reads a SLD file and publishes it to GeoServer.
-   *
-   * We assume the name of the file without extension is the name of the style.
-   *
-   * @param {String} directory The directory where the SLD files are located
-   * @param {String} styleName The name of the style and the file
-   * @param {String} workspace The workspace to publish the style to
-   */
-  async function createSingleStyle(directory, styleName, workspace) {
-
-    console.log(`Creating style '${styleName}' ... `);
-    const styleFile = styleName + SLD_SUFFIX;
-
-    const styleExists = await grc.styles.getStyleInformation(styleName, workspace);
-
-    if (styleExists) {
-      console.log(`Style already exists. SKIP`);
+    if (extension !== SLD_SUFFIX) {
+      // skip files that are not SLD
+      return;
     }
-    else {
-      const sldFilePath = path.join(directory, styleFile);
-      const sldBody = fs.readFileSync(sldFilePath, 'utf8');
+    await createSingleStyle(SLD_DIRECTORY, styleName, workspace);
+  });
+}
 
-      // publish style
-      const stylePublished = await grc.styles.publish(workspace, styleName, sldBody);
-      if (stylePublished) {
-        console.log(`Successfully created style '${styleName}'`);
-      } else {
-        console.log(`Creation of style '${styleName}' failed`);
-      }
+/**
+ * Reads a SLD file and publishes it to GeoServer.
+ *
+ * We assume the name of the file without extension is the name of the style.
+ *
+ * @param {String} directory The directory where the SLD files are located
+ * @param {String} styleName The name of the style and the file
+ * @param {String} workspace The workspace to publish the style to
+ */
+async function createSingleStyle(directory, styleName, workspace) {
+  console.log(`Creating style '${styleName}' ... `);
+  const styleFile = styleName + SLD_SUFFIX;
+
+  const styleExists = await grc.styles.getStyleInformation(styleName, workspace);
+
+  if (styleExists) {
+    console.log(`Style already exists. SKIP`);
+  }
+  else {
+    const sldFilePath = path.join(directory, styleFile);
+    const sldBody = fs.readFileSync(sldFilePath, 'utf8');
+
+    // publish style
+    const stylePublished = await grc.styles.publish(workspace, styleName, sldBody);
+    if (stylePublished) {
+      console.log(`Successfully created style '${styleName}'`);
+    } else {
+      console.log(`Creation of style '${styleName}' failed`);
     }
   }
+}
 
 /**
  * Sets the proxy base url if it is provided
@@ -158,7 +157,7 @@ async function createWorkspaces() {
       console.info('Successfully created workspace', wsCreated);
     } else {
       console.error('Failed creating workspace (maybe already existing)  ',
-          ws, wsCreated);
+        ws, wsCreated);
     }
   });
 }
@@ -179,14 +178,14 @@ async function createPostgisDatastore() {
     console.info('Successfully created PostGIS store', stationDataStore);
   } else {
     console.error('Failed creating PostGIS store (maybe already existing) ',
-        stationDataStore, created);
+      stationDataStore, created);
   }
 }
 
 /**
  * Creates the stations layer.
  */
- async function createStationsLayer() {
+async function createStationsLayer() {
   framedMediumLogging('Creating stations layer...');
 
   const workspace = 'station_data';
