@@ -178,7 +178,7 @@ async function createPostgisDatastore() {
     console.info('Successfully created PostGIS store', stationDataStore);
   } else {
     console.error('Failed creating PostGIS store (maybe already existing) ',
-      stationDataStore, created);
+        stationDataStore, created);
   }
 }
 
