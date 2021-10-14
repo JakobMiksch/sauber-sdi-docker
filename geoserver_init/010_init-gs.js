@@ -185,7 +185,7 @@ async function createPostgisDatastore() {
 /**
  * Creates the stations layer.
  */
-async function createStationsLayer() {
+ async function createStationsLayer() {
   framedMediumLogging('Creating stations layer...');
 
   const workspace = 'station_data';
