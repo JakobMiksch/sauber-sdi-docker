@@ -157,7 +157,7 @@ async function createWorkspaces() {
       console.info('Successfully created workspace', wsCreated);
     } else {
       console.error('Failed creating workspace (maybe already existing)  ',
-        ws, wsCreated);
+          ws, wsCreated);
     }
   });
 }
